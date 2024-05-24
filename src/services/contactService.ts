@@ -21,71 +21,75 @@ export const identifyContact = async (
   const { email, phoneNumber } = data;
   const contactRepository = AppDataSource.getRepository(Contact);
 
-  // Find existing secondary contact based on email
-  let secondaryContact = email
+  // Find contacts based on email and phoneNumber
+  const emailContact = email
     ? await contactRepository.findOne({ where: { email } })
     : null;
 
-  // If secondary contact found, get the primary contact using linkedId
-  if (secondaryContact && secondaryContact.linkPrecedence === "secondary") {
-    const primaryContact: any = await contactRepository.findOne({
-      where: { id: secondaryContact.linkedId },
-    });
+  const phoneNumberContact = phoneNumber
+    ? await contactRepository.findOne({ where: { phoneNumber } })
+    : null;
 
-    const secondaryContacts = await contactRepository.find({
-      where: { linkedId: primaryContact.id, linkPrecedence: "secondary" },
-    });
-    const emails = [
-      primaryContact.email || "",
-      ...secondaryContacts.map((contact) => contact.email || ""),
-    ];
-    const phoneNumbers = [
-      ...new Set([
-        primaryContact.phoneNumber || "",
-        ...secondaryContacts.map((contact) => contact.phoneNumber || ""),
-      ]),
-    ];
-    const secondaryContactIds = secondaryContacts.map((contact) => contact.id);
-
-    return {
-      contact: {
-        primaryContactId: primaryContact.id,
-        emails,
-        phoneNumbers,
-        secondaryContactIds,
-      },
-    };
-  }
-
-  // If no existing secondary contact found, find primary contact based on email or phoneNumber
-  let primaryContact = await contactRepository.findOne({
-    where: [{ email }, { phoneNumber }],
-    order: { createdAt: "ASC" },
-  });
-
-  // If no existing contact found, create a new primary contact
-  if (!primaryContact) {
+  if (!emailContact && !phoneNumberContact) {
+    // If no contact found, create a new primary contact
     const newContact = contactRepository.create({
       email,
       phoneNumber,
     });
-    primaryContact = await contactRepository.save(newContact);
+    const savedContact = await contactRepository.save(newContact);
     return {
       contact: {
-        primaryContactId: primaryContact.id,
-        emails: [primaryContact.email || ""],
-        phoneNumbers: [primaryContact.phoneNumber || ""],
+        primaryContactId: savedContact.id,
+        emails: [savedContact.email || ""],
+        phoneNumbers: [savedContact.phoneNumber || ""],
         secondaryContactIds: [],
       },
     };
   }
 
-  // Find all linked secondary contacts
+  let primaryContact: any = emailContact || phoneNumberContact;
+
+  // CASE 1: email and phoneNumber belong to different primary contacts
+  if (
+    emailContact &&
+    phoneNumberContact &&
+    emailContact.id !== phoneNumberContact.id
+  ) {
+    // Determine the older primary contact to remain as primary
+    if (emailContact.createdAt <= phoneNumberContact.createdAt) {
+      primaryContact = emailContact;
+      phoneNumberContact.linkPrecedence = "secondary";
+      phoneNumberContact.linkedId = emailContact.id;
+      await contactRepository.save(phoneNumberContact);
+    } else {
+      primaryContact = phoneNumberContact;
+      emailContact.linkPrecedence = "secondary";
+      emailContact.linkedId = phoneNumberContact.id;
+      await contactRepository.save(emailContact);
+    }
+  } else {
+    // If one of them is already secondary, ensure we use the primary
+    if (emailContact && emailContact.linkPrecedence === "secondary") {
+      primaryContact = await contactRepository.findOne({
+        where: { id: emailContact.linkedId },
+      });
+    }
+    if (
+      phoneNumberContact &&
+      phoneNumberContact.linkPrecedence === "secondary"
+    ) {
+      primaryContact = await contactRepository.findOne({
+        where: { id: phoneNumberContact.linkedId },
+      });
+    }
+  }
+
+  // CASE 2: Find all linked secondary contacts
   const secondaryContacts = await contactRepository.find({
     where: { linkedId: primaryContact.id, linkPrecedence: "secondary" },
   });
 
-  // Check if new secondary contact needs to be created
+  // CASE 3: Check if new secondary contact needs to be created
   const existingSecondaryEmails = secondaryContacts.map(
     (contact) => contact.email
   );
@@ -96,10 +100,10 @@ export const identifyContact = async (
   if (
     (email &&
       !existingSecondaryEmails.includes(email) &&
-      !primaryContact.email?.includes(email)) ||
+      primaryContact.email !== email) ||
     (phoneNumber &&
       !existingSecondaryPhoneNumbers.includes(phoneNumber) &&
-      !primaryContact.phoneNumber?.includes(phoneNumber))
+      primaryContact.phoneNumber !== phoneNumber)
   ) {
     const newSecondaryContact = contactRepository.create({
       email,
@@ -111,7 +115,7 @@ export const identifyContact = async (
     secondaryContacts.push(newSecondaryContact);
   }
 
-  // Update primary contact if necessary
+  // CASE 4: Update primary contact if necessary
   if (email && !primaryContact.email) {
     primaryContact.email = email;
   } else if (phoneNumber && !primaryContact.phoneNumber) {
