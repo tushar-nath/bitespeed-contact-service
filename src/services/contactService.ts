@@ -31,7 +31,6 @@ export const identifyContact = async (
     : null;
 
   if (!emailContact && !phoneNumberContact) {
-    // If no contact found, create a new primary contact
     const newContact = contactRepository.create({
       email,
       phoneNumber,
@@ -46,7 +45,6 @@ export const identifyContact = async (
       },
     };
   }
-
   let primaryContact: any = emailContact || phoneNumberContact;
 
   // CASE 1: email and phoneNumber belong to different primary contacts
