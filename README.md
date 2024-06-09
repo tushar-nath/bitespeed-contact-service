@@ -1,4 +1,4 @@
-# Magical Arena
+# Bitespeed Contact Server
 
 This project is a contact management service built using Node.js, TypeScript, Express, and PostgreSQL, with Prisma as the ORM. The application is hosted on Vercel.
 
