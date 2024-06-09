@@ -4,35 +4,35 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-} from "typeorm";
+} from 'typeorm'
 
 @Entity()
 export class Contact {
   @PrimaryGeneratedColumn()
-  id!: number;
+  id!: number
 
   @Column({ nullable: true })
-  phoneNumber?: string;
+  phoneNumber?: string
 
   @Column({ nullable: true })
-  email?: string;
+  email?: string
 
   @Column({ nullable: true })
-  linkedId?: number;
+  linkedId?: number
 
   @Column({
-    type: "enum",
-    enum: ["primary", "secondary"],
-    default: "primary",
+    type: 'enum',
+    enum: ['primary', 'secondary'],
+    default: 'primary',
   })
-  linkPrecedence!: "primary" | "secondary";
+  linkPrecedence!: 'primary' | 'secondary'
 
   @CreateDateColumn()
-  createdAt!: Date;
+  createdAt!: Date
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+  updatedAt!: Date
 
   @Column({ nullable: true })
-  deletedAt?: Date;
+  deletedAt?: Date
 }
