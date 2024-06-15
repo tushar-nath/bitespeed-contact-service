@@ -21,7 +21,7 @@ This project is a contact management service built using Node.js, TypeScript, Ex
 
 1. Clone the repository:
 
-   `git clone https://github.com/yourusername/bitespeed-contact-service.git`
+   `git@github.com:tushar-nath/bitespeed-contact-service.git`
    `cd bitespeed-contact-service`
 
 2. Install the dependencies:
